@@ -17,8 +17,16 @@ var PORT = 3000;
 // Initialize Express
 var app = express();
 
-// Configure middleware
+// Static directory
+app.use(express.static("public"));
 
+// Set Handlebars.
+var exphbs = require("express-handlebars");
+
+app.engine("handlebars", exphbs({extname: "handlebars", defaultLayout: "mainArticles" }));
+app.set("view engine", "handlebars");
+
+// Configure middleware
 // Use morgan logger for logging requests
 app.use(logger("dev"));
 // Use body-parser for handling form submissions
@@ -29,7 +37,7 @@ app.use(express.static("public"));
 // Set mongoose to leverage built in JavaScript ES6 Promises
 // Connect to the Mongo DB
 mongoose.Promise = Promise;
-mongoose.connect("mongodb://localhost/week18Populater", {
+mongoose.connect("mongodb://localhost/pokemonNews", {
   useMongoClient: true
 });
 
@@ -38,22 +46,18 @@ mongoose.connect("mongodb://localhost/week18Populater", {
 // A GET route for scraping the echojs website
 app.get("/scrape", function(req, res) {
   // First, we grab the body of the html with request
-  axios.get("http://www.echojs.com/").then(function(response) {
+  axios.get("https://pokemondb.net/").then(function(response) {
     // Then, we load that into cheerio and save it to $ for a shorthand selector
     var $ = cheerio.load(response.data);
 
     // Now, we grab every h2 within an article tag, and do the following:
-    $("article h2").each(function(i, element) {
+    $("div.span-8 h2").each(function(i, element) {
       // Save an empty result object
       var result = {};
 
       // Add the text and href of every link, and save them as properties of the result object
-      result.title = $(this)
-        .children("a")
-        .text();
-      result.link = $(this)
-        .children("a")
-        .attr("href");
+      result.title = $(this).find("a").text();
+      result.link = $(this).find("a").attr("href");
 
       // Create a new Article using the `result` object built from scraping
       db.Article
@@ -68,6 +72,18 @@ app.get("/scrape", function(req, res) {
         });
     });
   });
+});
+
+//HANDLEBARS ROUTE
+app.get("/hbsArticles", function(req,res){
+  db.Article
+    .find({})
+    .then(function(dbArticle){
+      res.render("articles", {articles: dbArticle});
+    })
+    .catch(function(err) {
+      res.json(err);
+    })
 });
 
 // Route for getting all Articles from the db
